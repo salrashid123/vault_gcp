@@ -4,21 +4,40 @@ Sample workflow covering basic use of Vault on GCP.
 
 The specific aspects covered here:
 
-1. Using GCP credentials to autentheicate **TO** Vault (`vault login -method=gcp`) 
+1. Using GCP credentials to authenticate **TO** Vault (`vault login -method=gcp`) 
    (Google Cloud Auth Method)[https://www.vaultproject.io/docs/auth/gcp.html]
 2. Using Vault to **GET** GCP secrets (`vault read gcp/token/...`)  
    (Google Cloud Secrets Engine)[https://www.vaultproject.io/docs/secrets/gcp/index.html]
 3. Using Vault to Encrypt/Decrypt a secret through Google Cloud KMS
 
-In other words, for `1` use a Google Credential (OIDC Token) to authenticate TO Vault to get a Vault-native token `VAULT_TOKEN`
+In other words, for (1) use a Google Credential (OIDC Token) to authenticate TO Vault to get a Vault-native token `VAULT_TOKEN`
 
-For `2` you use a Vault-native token (`VAULT_TOKEN`) to get a temprorary Google `access_token` or the raw serviceAccount JSON key material for Google Cloud.
+For (2) you use a Vault-native token (`VAULT_TOKEN`) to get a temporary Google `access_token` or the raw serviceAccount JSON key material for Google Cloud.
 
 This article shows a basic setup for both scenarios in addition to basic Vault key-value and encryption endpoints (`/transit`).  I started looking into Vault recently as part of my work and found the two different capabilities a bit opaque so i started setting up and testing each of the features.  This article is nothing but an end-to-end of some of the Vault-GCP integration I came across.
 
-It doe not 
+It doe not cover running Vault in GKE or using kubernetes ServiceAccounts for Vault auth.  FOr that see [Vault Agent with Kubernetes](https://learn.hashicorp.com/vault/identity-access-management/vault-agent-k8s)
 
-### Setup
+
+- [Setup](#Setup)
+  * [Start Vault](#Start-Vault)
+  * [Authorize Root Admin session](#Authorize-Root-Admin-session)
+  * [Create a new Policy restricted token](#Create-a-new-Policy-restricted-token)
+  * [Vault Secret](#Vault-Secret)
+  * [Vault Encryption/Decryption (Transit Engine)](#Vault-Encryption/Decryption-(Transit-Engine))
+- [GCP Vault Auth](#GCP-Vault-Auth)
+  * [Vault auth for GCE instances](#Vault-auth-for-GCE-instances)
+  * [Vault auth using Google OIDC](#Vault-auth-using-Google-OIDC)
+- [GCP Vault Secrets](#GCP-Vault-Secrets)
+  * [AccessToken](#AccessToken)
+  * [ServiceAccount Key](#ServiceAccount-Key)
+  *[KMS based secrets](#KMS-based-secrets)
+- [Misc](#Misc)
+  * [Asking Vault to return OIDC tokens](#Asking-Vault-to-return-OIDC-tokens)
+  * [Asking Vault to return GCP JWTAccessToken](#Asking-Vault-to-return-GCP-JWTAccessToken)
+
+
+## Setup
 
 First we setup some environment variables we will resuse several times as well as the service account Vault will run as to provision services on GCP.
 
@@ -46,7 +65,6 @@ Start vault and bootstrap the GCP credentials it will use later during GCP secre
 export GOOGLE_APPLICATION_CREDENTIALS=`pwd`/vault-svc.json
 
 $ vault server --dev
-
 
              Api Address: http://127.0.0.1:8200
                      Cgo: disabled
@@ -88,7 +106,7 @@ Cluster ID      733099f6-8464-0aae-3c59-038c34825bce
 HA Enabled      false
 ```
 
-Creae policies to test basic vault operations. (note, these policies are permissive, its recommended to tune/restrict them)
+Create policies to test basic vault operations. (note, these policies are permissive, its recommended to tune/restrict them)
 
 ```
 vault policy write token-policy  token_policy.hcl
@@ -182,7 +200,7 @@ ttl                 767h58m12s
 type                service
 ```
 
-Ok, all we've done here is showd that we can lookup info for the token as defined in the `.hcl` file
+Ok, all we've done here is shown that we can lookup info for the token as defined in the `.hcl` file
 
 #### Vault Secret
 
@@ -259,7 +277,7 @@ export VAULT_ADDR='http://localhost:8200'
 vault auth enable gcp
 ```
 
-Now create a new service account.  This is the service accout a user will have and use to authenticate against vault.
+Now create a new service account.  This is the service account a user will have and use to authenticate against vault.
 
 ```bash
 export PROJECT_ID=`gcloud config get-value core/project`
@@ -321,7 +339,7 @@ token_meta_role                     my-iam-role
 
 ..but wait, its just signing a JWT using a private thats you already have right there!! (`@generic-svc.json`)?!
 
-Can't we just use the service accout we already to sign?  Ofcourse..
+Can't we just use the service account we already to sign?  Ofcourse..
 
 Run the go snippet provided here and get the self-signed JWT token
 
@@ -394,7 +412,7 @@ type                service
 
 Vault can also authenticate compute engine instances using the GCE instances [instance identity document](https://cloud.google.com/compute/docs/instances/verifying-instance-identity).  The identity document is simplay a Google signed OIDC token which can be verified against a public certificate google provides.
 
->> Fankly, this is what vault should be using to authenticate even service account.   The previous section authenticates a service account using a "self-signed" JWT...but what really asserts identity is a google OIDC token.  For more information, see [google_id_token](https://github.com/salrashid123/google_id_token)
+>> Frankly, this is what vault should be using to authenticate even service account.   The previous section authenticates a service account using a "self-signed" JWT...but what really asserts identity is a google OIDC token.  For more information, see [google_id_token](https://github.com/salrashid123/google_id_token)
 
 
 Anyway, in the **Admin window**, run the following to create the endpoint:
@@ -552,7 +570,7 @@ token_meta_role      tokensecrets
 
 ---
 
-## GCP Vault Secrets (or asking Vault to return GCP access_token or a service account)
+## GCP Vault Secrets
 
 ### AccessToken
 
@@ -625,13 +643,13 @@ vault-svc@$PROJECT_ID.iam.gserviceaccount.com
 
 ### ServiceAccount Key
 
-Vault auth can also return the **RAW** service account key material inline...basically the temprorary raw key.
+Vault auth can also return the **RAW** service account key material inline...basically the temporary raw key.
 
 _This endpoint generates a new GCP IAM service account key associated with the roleset's Service Account. When the lease expires (or is revoked early), the Service Account key will be deleted._
 
 Editorial: I'm not sure why the full raw key is ever exported outside of Vault...it'd be better to just expose capabilities from within Vault itself (eg, sign, getAccessToken(), etc)
 
-Anyway, to export temprorary generated key, first create the role to bind a key to the GCS bucket IAM permissions we setup earlier:
+Anyway, to export temporary generated key, first create the role to bind a key to the GCS bucket IAM permissions we setup earlier:
 
 ```
 vault write gcp/roleset/my-key-roleset \
