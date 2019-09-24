@@ -4,10 +4,8 @@ Sample workflow covering basic use of Vault on GCP.
 
 The specific aspects covered here:
 
-1. Using GCP credentials to authenticate **TO** Vault (`vault login -method=gcp`) 
-   (Google Cloud Auth Method)[https://www.vaultproject.io/docs/auth/gcp.html]
-2. Using Vault to **GET** GCP secrets (`vault read gcp/token/...`)  
-   (Google Cloud Secrets Engine)[https://www.vaultproject.io/docs/secrets/gcp/index.html]
+1. Using GCP credentials to authenticate **TO** Vault (`vault login -method=gcp`) [Google Cloud Auth Method](https://www.vaultproject.io/docs/auth/gcp.html)
+2. Using Vault to **GET** GCP secrets (`vault read gcp/token/...`)  [Google Cloud Secrets Engine](https://www.vaultproject.io/docs/secrets/gcp/index.html)
 3. Using Vault to Encrypt/Decrypt a secret through Google Cloud KMS
 
 In other words, for (1) use a Google Credential (OIDC Token) to authenticate TO Vault to get a Vault-native token `VAULT_TOKEN`
@@ -31,7 +29,7 @@ It doe not cover running Vault in GKE or using kubernetes ServiceAccounts for Va
 - [GCP Vault Secrets](#GCP-Vault-Secrets)
   * [AccessToken](#AccessToken)
   * [ServiceAccount Key](#ServiceAccount-Key)
-  *[KMS based secrets](#KMS-based-secrets)
+  * [KMS based secrets](#KMS-based-secrets)
 - [Misc](#Misc)
   * [Asking Vault to return OIDC tokens](#Asking-Vault-to-return-OIDC-tokens)
   * [Asking Vault to return GCP JWTAccessToken](#Asking-Vault-to-return-GCP-JWTAccessToken)
