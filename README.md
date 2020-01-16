@@ -204,7 +204,8 @@ Ok, all we've done here is shown that we can lookup info for the token as define
 
 Now use the new restricted token to put and then get a key-value into vault
 
-```
+```bash
+$ vault kv put kv/message foo=world
 Key              Value
 ---              -----
 created_time     2019-09-21T00:07:20.40618114Z
