@@ -582,6 +582,8 @@ This section will utilize vanilla [JWT Auth](https://www.vaultproject.io/api/aut
 Configure JWT Auth using GCP's JWT URL and issuer:
 
 ```bash
+vault auth enable jwt
+
 vault write auth/jwt/config \
     jwks_url="https://www.googleapis.com/oauth2/v3/certs" \
     bound_issuer="https://accounts.google.com" 
