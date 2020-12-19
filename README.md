@@ -650,6 +650,58 @@ Now use the token:
   vault kv get kv/message
 ```
 
+To map GCE embedded claims in the JWT, specify the `bound_claims` parameter.  In the sample below, the audience, subject and projectID must match up to the JWT
+
+```bash
+vault write auth/jwt/role/my-jwt-role -<<EOF
+  {
+    "user_claim": "sub",
+    "bound_subject": "116886099908689513068",
+    "bound_audiences": "https://myapp-6w42z6vi3q-uc.a.run.app/vault/my-gce-role",
+    "role_type": "jwt",
+    "policies": "secrets-policy",
+    "ttl": "1h",
+    "bound_claims": { "google/compute_engine/project_id": ["mineral-minutia-820"] }
+  }
+EOF
+```
+
+the corresponding JWT that is valid for the rule above is
+
+```json
+{
+  "aud": "https://myapp-6w42z6vi3q-uc.a.run.app/vault/my-gce-role",
+  "azp": "116886099908689513068",
+  "email": "gce-svc-account@mineral-minutia-820.iam.gserviceaccount.com",
+  "email_verified": true,
+  "exp": 1608423216,
+  "google": {
+    "compute_engine": {
+      "instance_creation_timestamp": 1602867595,
+      "instance_id": "8799667957578322428",
+      "instance_name": "instance-3",
+      "project_id": "mineral-minutia-820",
+      "project_number": 1071284184436,
+      "zone": "us-central1-a"
+    }
+  },
+  "iat": 1608419616,
+  "iss": "https://accounts.google.com",
+  "sub": "116886099908689513068"
+}
+```
+
+Your project and service account `sub` will be different.  To acquire a token from you GCE environment, you must specify your own setting above and acquire the JWT token from the GCE instance you created (in the example below, its `instance-3`)
+
+```bash
+export TOKEN=`gcloud compute ssh instance-3 -- -t "curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=https://myapp-6w42z6vi3q-uc.a.run.app/vault/my-gce-role\&format=full; echo ''"`
+export VAULT_TOKEN=`vault write -field="token" auth/jwt/login role=my-jwt-role jwt="$TOKEN"`
+echo $VAULT_TOKEN
+
+  vault kv put kv/message foo=world
+  vault kv get kv/message
+```
+
 ## GCP Vault Secrets
 
 ### AccessToken
