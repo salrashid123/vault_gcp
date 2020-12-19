@@ -507,7 +507,7 @@ ttl                 767h59m11s
 type                service
 ```
 
-### Vault auth using Google OIDC
+### Vault auth using Google OIDC (user)
 
 In the **Admin window**, run the following to create a `client_id` and `client_secret` as documented [here](https://www.vaultproject.io/docs/auth/jwt_oidc_providers.html#google).   Remember to set the "Authorized redirect URIs" to include `http://localhost:8400/oidc/callback`
 
@@ -568,6 +568,84 @@ token_meta_role      tokensecrets
 ```
 
 ---
+
+
+
+### Vault auth using Google JWT (oidc jwt)
+
+
+The following sequence will use a GCP OIDC JWT Token for authentication.  This is very similar to the vault gcp `auth` provider flows (`vault auth enable gcp`) except that this configures the OIDC provider directly.  
+
+This section will utilize vanilla [JWT Auth](https://www.vaultproject.io/api/auth/jwt) and an OIDC token provided by the gcloud CLI's client_id/secret for the current logged in user (i.,e the oidc token from `gcloud auth print-identity-token`)
+
+Configure JWT Auth using GCP's JWT URL and issuer:
+
+```bash
+vault write auth/jwt/config \
+    jwks_url="https://www.googleapis.com/oauth2/v3/certs" \
+    bound_issuer="https://accounts.google.com" 
+```
+
+Now, w'ere going to use the current logged in user's OIDC token.  You can ofcourse use any GCP OIDC token (eg a service accounts, GCE VMs, etc)
+
+```bash
+export TOKEN=`gcloud auth print-identity-token`
+echo $TOKEN
+```
+
+Decode the token using the debugger at [jwt.io](jwt.io).  For me the token claims were like this (yours will be different ofcourse)
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "azp": "32555940559.apps.googleusercontent.com",
+  "aud": "32555940559.apps.googleusercontent.com",
+  "sub": "2232157913093274833624348",
+  "hd": "google.com",
+  "email": "root@google.com",
+  "email_verified": true,
+  "at_hash": "SRbtaUGXQKiLD5yhEiZV6w",
+  "iat": 1608382461,
+  "exp": 1608386061
+}
+```
+
+the `sub` field is the unique identifier for the user.  This is the primary key that identifies the user (not necessarily email)
+the `aud` value of `32555940559.apps.googleusercontent.com` is special: that is the client ID for the gcloud cli.  You can acquire a GCE Vm's OIDC token and specify arbitrary audiences.
+
+eg. if you had an GCE VM called `instance-3`, you could ask it for an OIDC token 
+```bash
+export TOKEN=`gcloud compute ssh instance-3 -- -t "curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=https://myapp-6w42z6vi3q-uc.a.run.app/vault/my-gce-role\&format=full; echo ''"`
+```
+
+Either way, you will need to create a JWT role that has the audience you picked specified.  In the sample below, we are using gcloud cli's aud client_id and binding the role to a specific user (eg, the subject field)
+
+```bash
+vault write auth/jwt/role/my-jwt-role \
+    bound_subject="2232157913093274833624348" \
+    user_claim="sub" \
+    role_type="jwt" \
+    bound_audiences="32555940559.apps.googleusercontent.com" \
+    policies="secrets-policy" \
+    ttl=1h 
+``` 
+
+In a new window, 
+
+```bash
+  export VAULT_ADDR='http://localhost:8200'
+  export TOKEN=`gcloud auth print-identity-token`
+  echo $TOKEN
+  export VAULT_TOKEN=`vault write -field="token" auth/jwt/login role=my-jwt-role jwt="$TOKEN"`
+  echo $VAULT_TOKEN
+```
+
+Now use the token:
+
+```bash
+  vault kv put kv/message foo=world
+  vault kv get kv/message
+```
 
 ## GCP Vault Secrets
 
