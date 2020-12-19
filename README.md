@@ -25,7 +25,8 @@ It doe not cover running Vault in GKE or using kubernetes ServiceAccounts for Va
   * [Vault Encryption/Decryption (Transit Engine)](#Vault-Encryption/Decryption-(Transit-Engine))
 - [GCP Vault Auth](#GCP-Vault-Auth)
   * [Vault auth for GCE instances](#Vault-auth-for-GCE-instances)
-  * [Vault auth using Google OIDC](#Vault-auth-using-Google-OIDC)
+  * [Vault auth using Google OIDC 3LO](#Vault-auth-using-Google-OIDC-3lo)
+  * [Vault auth using Google JWT](#Vault-auth-using-Google-JWT)
 - [GCP Vault Secrets](#GCP-Vault-Secrets)
   * [AccessToken](#AccessToken)
   * [ServiceAccount Key](#ServiceAccount-Key)
@@ -507,7 +508,7 @@ ttl                 767h59m11s
 type                service
 ```
 
-### Vault auth using Google OIDC (user)
+### Vault auth using Google OIDC 3LO
 
 In the **Admin window**, run the following to create a `client_id` and `client_secret` as documented [here](https://www.vaultproject.io/docs/auth/jwt_oidc_providers.html#google).   Remember to set the "Authorized redirect URIs" to include `http://localhost:8400/oidc/callback`
 
@@ -571,7 +572,7 @@ token_meta_role      tokensecrets
 
 
 
-### Vault auth using Google JWT (oidc jwt)
+### Vault auth using Google JWT
 
 
 The following sequence will use a GCP OIDC JWT Token for authentication.  This is very similar to the vault gcp `auth` provider flows (`vault auth enable gcp`) except that this configures the OIDC provider directly.  
