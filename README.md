@@ -53,6 +53,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$VAUL
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$VAULT_SERVICE_ACCOUNT --role=roles/iam.serviceAccountKeyAdmin
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$VAULT_SERVICE_ACCOUNT --role=roles/compute.viewer
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$VAULT_SERVICE_ACCOUNT --role=roles/storage.admin
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$VAULT_SERVICE_ACCOUNT --role=roles/viewer
 ```
 
 
@@ -103,6 +104,12 @@ Version         1.3.0-dev
 Cluster Name    vault-cluster-77df4a3f
 Cluster ID      733099f6-8464-0aae-3c59-038c34825bce
 HA Enabled      false
+```
+
+Add GCP config authentication into Vault:
+
+```
+vault write auth/gcp/config credentials=@vault-svc.json
 ```
 
 Create policies to test basic vault operations. (note, these policies are permissive, its recommended to tune/restrict them)
