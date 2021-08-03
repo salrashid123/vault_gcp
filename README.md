@@ -31,6 +31,7 @@ It doe not cover running Vault in GKE or using kubernetes ServiceAccounts for Va
   * [AccessToken](#AccessToken)
   * [ServiceAccount Key](#ServiceAccount-Key)
   * [KMS based secrets](#KMS-based-secrets)
+- [Terraform Credentials from Vault](#Terraform-credentials-from-vault)
 - [Misc](#Misc)
   * [Asking Vault to return OIDC tokens](#Asking-Vault-to-return-OIDC-tokens)
   * [Asking Vault to return GCP JWTAccessToken](#Asking-Vault-to-return-GCP-JWTAccessToken)
@@ -876,6 +877,109 @@ Once you delete the Vault key, the KMS key is also deleted
 ```
 $ vault delete gcpkms/keys/my-vault-key
 ```
+
+
+## Terraform Credentials from Vault
+
+Configure Terraform to get GCP credentials from Vault
+
+also see [Read GCP credentials from Vault in Terraform](https://stackoverflow.com/questions/62592504/read-gcp-credentials-from-vault-in-terraform)
+
+
+```bash
+export PROJECT_ID=`gcloud config get-value core/project`
+export PROJECT_NUMBER=`gcloud projects describe $PROJECT_ID --format='value(projectNumber)'`
+```
+
+1. make sure vault runs with permissions to do binding and create SA
+
+```bash
+  gcloud auth application-default login
+```
+
+2. Start Vault
+
+```bash
+vault server --dev
+```
+
+3. Enable gcp auth for vault
+
+in a new window paste the root vault token
+```bash
+export VAULT_ADDR='http://localhost:8200'
+export VAULT_TOKEN=...root_token...
+
+vault secrets enable gcp
+```
+
+4. Create Vault policy and token
+
+in new window 
+
+remember to edit the bucket and project id below (in my case, the projectid is `fabled-ray-104117`)
+
+```bash
+cat <<EOF > projects.hcl
+resource "projects/fabled-ray-104117" {
+   roles = ["roles/browser"]
+}
+EOF
+
+vault write gcp/roleset/my-token-roleset  \
+    project="$PROJECT_ID"  \
+    secret_type="access_token"  \
+    token_scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/userinfo.email"  \
+    bindings=@projects.hcl
+
+vault policy write secrets-policy  secrets_policy.hcl
+vault policy write token-policy  token_policy.hcl
+vault token create  -policy=secrets-policy -policy=token-policy
+```
+
+
+5. In new window, test vault policy returns an access token
+
+```bash
+export VAULT_ADDR='http://localhost:8200'
+export VAULT_TOKEN=..token_from_step_4..
+
+vault read gcp/token/my-token-roleset
+```
+
+6. In new window, edit main.tf and set the VUALT_TOKEN value from step 5
+
+```js
+provider "vault" {
+  address = "http://localhost:8200"
+  token   = "..token_from_step_4.."
+}
+
+data "vault_generic_secret" "gcp_token" {
+  path = "gcp/token/my-token-roleset"
+}
+
+provider "google" {
+  access_token = data.vault_generic_secret.gcp_token.data["token"]
+}
+
+data "google_project" "project" {
+  project_id = "fabled-ray-104117"
+}
+
+output "project_number" {
+  value = data.google_project.project.number
+}
+```
+
+7. 
+
+```
+terraform apply
+```
+
+what you should see is the projectid number
+
 
 ## Misc
 

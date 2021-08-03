@@ -7,7 +7,7 @@ import (
 
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 )
