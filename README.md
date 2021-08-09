@@ -774,6 +774,55 @@ gcloud iam service-accounts list --format="value(email)"
 vault-svc@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
+
+#### Vault TokenSource
+
+VaultTokenSource provides a google cloud credential and tokenSource derived from a VAULT_TOKEN.
+
+Vault must be configure first to return a valid access_token with appropriate permissions on the resource being accessed on GCP.
+
+See [https://github.com/salrashid123/oauth2#usage-vaulttokensource](https://github.com/salrashid123/oauth2#usage-vaulttokensource)
+
+```golang
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"os"
+
+	"cloud.google.com/go/storage"
+
+	sal "github.com/salrashid123/oauth2/vault"
+	"google.golang.org/api/option"
+)
+
+var (
+	projectId  = "pubsub-msg"
+	bucketName = "pubsub-msg-bucket"
+	objectName = "somefile.txt"
+)
+
+func main() {
+	ts, err := sal.VaultTokenSource(
+		&sal.VaultTokenConfig{
+			VaultToken: "s.URldGrQaEajbEgZB9KLjOJPQ",
+			VaultPath:  "gcp/token/my-token-roleset",
+			VaultAddr: "http://localhost:8200",
+		},
+	)
+
+	ctx := context.Background()
+
+	storageClient, err := storage.NewClient(ctx, option.WithTokenSource(ts))
+  ...
+}
+
+```
+
+
 ### ServiceAccount Key
 
 Vault auth can also return the **RAW** service account key material inline...basically the temporary raw key.
